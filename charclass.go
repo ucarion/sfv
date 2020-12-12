@@ -35,3 +35,7 @@ func isTChar(b byte) bool {
 func isLCAlpha(b byte) bool {
 	return b >= 0x61 && b <= 0x7A
 }
+
+func isOWS(b byte) bool {
+	return b == ' ' || b == '\t'
+}

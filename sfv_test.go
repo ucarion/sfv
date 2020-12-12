@@ -44,10 +44,6 @@ func TestParse_StandardSuite(t *testing.T) {
 					t.SkipNow()
 				}
 
-				if tt.HeaderType != "item" {
-					t.SkipNow()
-				}
-
 				switch tt.HeaderType {
 				case "item":
 					var out sfv.Item
@@ -61,10 +57,83 @@ func TestParse_StandardSuite(t *testing.T) {
 					if !reflect.DeepEqual(out, expected) {
 						t.Errorf("out != expected: want: %v, got: %v", expected, out)
 					}
+				case "list":
+					out := []sfv.Member{}
+					for _, s := range tt.Raw {
+						if err := sfv.Unmarshal(s, &out); err != nil {
+							t.Errorf("unmarshal input: %v", err)
+						}
+					}
+
+					expected := decodeList(tt.Expected)
+					if !reflect.DeepEqual(out, expected) {
+						t.Errorf("out != expected: want: %#v, got: %#v", expected, out)
+					}
+				case "dictionary":
+					out := sfv.Dictionary{Map: map[string]sfv.Member{}, Keys: []string{}}
+					for _, s := range tt.Raw {
+						if err := sfv.Unmarshal(s, &out); err != nil {
+							t.Errorf("unmarshal input: %v", err)
+						}
+					}
+
+					expected := decodeDictionary(tt.Expected)
+					if !reflect.DeepEqual(out, expected) {
+						t.Errorf("out != expected: want: %#v, got: %#v", expected, out)
+					}
+				default:
+					t.Errorf("bad header type")
 				}
 			})
 		}
 	}
+}
+
+func decodeDictionary(v interface{}) sfv.Dictionary {
+	out := sfv.Dictionary{Map: map[string]sfv.Member{}, Keys: []string{}}
+	for _, pair := range v.([]interface{}) {
+		p := pair.([]interface{})
+		k, v := p[0].(string), decodeMember(p[1])
+
+		out.Map[k] = v
+		out.Keys = append(out.Keys, k)
+	}
+
+	return out
+}
+
+func decodeList(v interface{}) []sfv.Member {
+	out := []sfv.Member{}
+	for _, i := range v.([]interface{}) {
+		out = append(out, decodeMember(i))
+	}
+
+	return out
+}
+
+func decodeMember(v interface{}) sfv.Member {
+	// Inner lists are arrays of 2-elem arrays; items are 2-elem arrays where
+	// the first element is never an array.
+	//
+	// So if i[0] is an array, we are dealing with an inner-list.
+	arr := v.([]interface{})
+
+	if _, ok := arr[0].([]interface{}); ok {
+		return sfv.Member{IsItem: false, InnerList: decodeInnerList(v)}
+	}
+
+	return sfv.Member{IsItem: true, Item: decodeItem(v)}
+}
+
+func decodeInnerList(v interface{}) sfv.InnerList {
+	arr := v.([]interface{})
+
+	items := []sfv.Item{}
+	for _, i := range arr[0].([]interface{}) {
+		items = append(items, decodeItem(i))
+	}
+
+	return sfv.InnerList{Items: items, Params: decodeParams(arr[1])}
 }
 
 func decodeItem(v interface{}) sfv.Item {
@@ -73,17 +142,20 @@ func decodeItem(v interface{}) sfv.Item {
 	}
 
 	arr := v.([]interface{})
+	return sfv.Item{Value: decodeBareItem(arr[0]), Params: decodeParams(arr[1])}
+}
 
-	params := sfv.Params{Map: map[string]interface{}{}, Keys: []string{}}
-	for _, pair := range arr[1].([]interface{}) {
+func decodeParams(v interface{}) sfv.Params {
+	out := sfv.Params{Map: map[string]interface{}{}, Keys: []string{}}
+	for _, pair := range v.([]interface{}) {
 		p := pair.([]interface{})
 		k, v := p[0].(string), decodeBareItem(p[1])
 
-		params.Map[k] = v
-		params.Keys = append(params.Keys, k)
+		out.Map[k] = v
+		out.Keys = append(out.Keys, k)
 	}
 
-	return sfv.Item{Value: decodeBareItem(arr[0]), Params: params}
+	return out
 }
 
 func decodeBareItem(v interface{}) interface{} {

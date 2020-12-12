@@ -6,6 +6,22 @@ import (
 	"strconv"
 )
 
+type Dictionary struct {
+	Map  map[string]Member
+	Keys []string
+}
+
+type Member struct {
+	IsItem    bool
+	Item      Item
+	InnerList InnerList
+}
+
+type InnerList struct {
+	Items  []Item
+	Params Params
+}
+
 type Item struct {
 	Value  interface{}
 	Params Params
@@ -23,21 +39,233 @@ func Unmarshal(s string, v interface{}) error {
 
 	// todo: support other types
 	if v, ok := v.(*Item); ok {
-		value, err := parseBareItem(&scan)
+		item, err := parseItem(&scan)
 		if err != nil {
 			return err
 		}
 
-		params, err := parseParameters(&scan)
-		if err != nil {
-			return err
-		}
-
-		*v = Item{Value: value, Params: params}
+		*v = item
 	}
 
-	// return fmt.Errorf("bad type: %v", v)
+	if v, ok := v.(*[]Member); ok {
+		list, err := parseList(&scan)
+		if err != nil {
+			return err
+		}
+
+		*v = append(*v, list...)
+	}
+
+	if v, ok := v.(*Dictionary); ok {
+		dict, err := parseDictionary(&scan)
+		if err != nil {
+			return err
+		}
+
+		if v == nil {
+			*v = dict
+		}
+
+		for _, k := range dict.Keys {
+			if _, ok := v.Map[k]; !ok {
+				v.Keys = append(v.Keys, k)
+			}
+
+			v.Map[k] = dict.Map[k]
+		}
+	}
+
 	return nil
+}
+
+func parseDictionary(s *scanner) (Dictionary, error) {
+	out := Dictionary{Map: map[string]Member{}, Keys: []string{}}
+
+	for {
+		b, err := s.peek()
+		if err != nil {
+			break
+		}
+
+		key, err := parseKey(s)
+		if err != nil {
+			return Dictionary{}, err
+		}
+
+		var member Member
+
+		b, err = s.peek()
+		if err == nil && b == '=' {
+			s.next()
+			member, err = parseListMember(s)
+			if err != nil {
+				return Dictionary{}, err
+			}
+		} else {
+			params, err := parseParameters(s)
+			if err != nil {
+				return Dictionary{}, err
+			}
+
+			member = Member{IsItem: true, Item: Item{Value: true, Params: params}}
+		}
+
+		if _, ok := out.Map[key]; !ok {
+			out.Keys = append(out.Keys, key)
+		}
+
+		out.Map[key] = member
+
+		s.skipOWS()
+
+		if _, err := s.peek(); err != nil {
+			return out, nil
+		}
+
+		b, err = s.next()
+		if err != nil {
+			return Dictionary{}, err
+		}
+
+		if b != ',' {
+			return Dictionary{}, s.parseError("dictionary members must be delimited by ','")
+		}
+
+		s.skipOWS()
+
+		if b, err := s.peek(); err != nil || b == ',' {
+			return Dictionary{}, s.parseError("illegal trailing ','")
+		}
+	}
+
+	return out, nil
+}
+
+func parseList(s *scanner) ([]Member, error) {
+	out := []Member{}
+
+	for {
+		_, err := s.peek()
+		if err != nil {
+			break // not an error; eof can end lists
+		}
+
+		member, err := parseListMember(s)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, member)
+
+		s.skipOWS()
+
+		if _, err := s.peek(); err != nil {
+			break
+		}
+
+		b, err := s.next()
+		if err != nil {
+			return nil, err
+		}
+
+		if b != ',' {
+			return nil, s.parseError("list members must be delimited by ','")
+		}
+
+		s.skipOWS()
+
+		if _, err := s.peek(); err != nil {
+			return nil, s.parseError("illegal trailing ',")
+		}
+	}
+
+	return out, nil
+}
+
+func parseListMember(s *scanner) (Member, error) {
+	b, err := s.peek()
+	if err != nil {
+		return Member{}, err
+	}
+
+	if b == '(' {
+		innerList, err := parseInnerList(s)
+		if err != nil {
+			return Member{}, err
+		}
+
+		return Member{IsItem: false, InnerList: innerList}, nil
+	}
+
+	item, err := parseItem(s)
+	if err != nil {
+		return Member{}, err
+	}
+
+	return Member{IsItem: true, Item: item}, nil
+}
+
+func parseInnerList(s *scanner) (InnerList, error) {
+	b, err := s.next()
+	if err != nil {
+		return InnerList{}, err
+	}
+
+	if b != '(' {
+		return InnerList{}, s.parseError("inner list must start with '('")
+	}
+
+	items := []Item{}
+	for {
+		b, err := s.peek()
+		if err != nil {
+			break
+		}
+
+		s.skipSP()
+
+		if b, err = s.peek(); err == nil && b == ')' {
+			s.next()
+			params, err := parseParameters(s)
+			if err != nil {
+				return InnerList{}, err
+			}
+
+			return InnerList{Items: items, Params: params}, nil
+		}
+
+		item, err := parseItem(s)
+		if err != nil {
+			return InnerList{}, err
+		}
+
+		items = append(items, item)
+
+		b, err = s.peek()
+		if err != nil {
+			return InnerList{}, err
+		}
+
+		if b != ' ' && b != ')' {
+			return InnerList{}, s.parseError("inner lists items must be separated by ' '")
+		}
+	}
+
+	return InnerList{}, s.parseError("unterminated inner list")
+}
+
+func parseItem(s *scanner) (Item, error) {
+	value, err := parseBareItem(s)
+	if err != nil {
+		return Item{}, err
+	}
+
+	params, err := parseParameters(s)
+	if err != nil {
+		return Item{}, err
+	}
+
+	return Item{Value: value, Params: params}, nil
 }
 
 func parseBareItem(s *scanner) (interface{}, error) {
@@ -377,6 +605,17 @@ func (s *scanner) skipSP() {
 	for {
 		b, err := s.peek()
 		if err != nil || b != ' ' {
+			break
+		}
+
+		s.next()
+	}
+}
+
+func (s *scanner) skipOWS() {
+	for {
+		b, err := s.peek()
+		if err != nil || !isOWS(b) {
 			break
 		}
 
