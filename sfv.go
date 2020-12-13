@@ -96,7 +96,7 @@ func parseDictionary(s *scanner) (Dictionary, error) {
 
 		b, err = s.peek()
 		if err == nil && b == '=' {
-			s.next()
+			s.mustNext()
 			member, err = parseListMember(s)
 			if err != nil {
 				return Dictionary{}, err
@@ -118,7 +118,7 @@ func parseDictionary(s *scanner) (Dictionary, error) {
 
 		s.skipOWS()
 
-		if _, err := s.peek(); err != nil {
+		if s.isEOF() {
 			return out, nil
 		}
 
@@ -145,9 +145,8 @@ func parseList(s *scanner) ([]Member, error) {
 	out := []Member{}
 
 	for {
-		_, err := s.peek()
-		if err != nil {
-			break // not an error; eof can end lists
+		if s.isEOF() {
+			break
 		}
 
 		member, err := parseListMember(s)
@@ -159,7 +158,7 @@ func parseList(s *scanner) ([]Member, error) {
 
 		s.skipOWS()
 
-		if _, err := s.peek(); err != nil {
+		if s.isEOF() {
 			break
 		}
 
@@ -174,7 +173,7 @@ func parseList(s *scanner) ([]Member, error) {
 
 		s.skipOWS()
 
-		if _, err := s.peek(); err != nil {
+		if s.isEOF() {
 			return nil, s.parseError("illegal trailing ',")
 		}
 	}
@@ -225,7 +224,7 @@ func parseInnerList(s *scanner) (InnerList, error) {
 		s.skipSP()
 
 		if b, err = s.peek(); err == nil && b == ')' {
-			s.next()
+			s.mustNext()
 			params, err := parseParameters(s)
 			if err != nil {
 				return InnerList{}, err
@@ -303,7 +302,7 @@ func parseParameters(s *scanner) (Params, error) {
 			break
 		}
 
-		s.next() // can't fail; we already peeked this
+		s.mustNext()
 		s.skipSP()
 
 		key, err := parseKey(s)
@@ -318,7 +317,7 @@ func parseParameters(s *scanner) (Params, error) {
 			// value, so we use the default value instead
 			value = true
 		} else {
-			s.next()
+			s.mustNext()
 			value, err = parseBareItem(s)
 			if err != nil {
 				return Params{}, err
@@ -358,7 +357,7 @@ func parseKey(s *scanner) (string, error) {
 		}
 
 		buf = append(buf, b)
-		s.next()
+		s.mustNext()
 	}
 }
 
@@ -399,7 +398,7 @@ func parseNumber(s *scanner) (float64, error) {
 
 	if b == '-' {
 		isPos = false
-		s.next() // can't fail, already peeked
+		s.mustNext()
 	}
 
 	// detect an "empty" integer
@@ -408,18 +407,16 @@ func parseNumber(s *scanner) (float64, error) {
 	}
 
 	for {
-		b, err = s.peek()
+		b, err := s.peek()
 		if err != nil {
 			break // eof is a valid way to end a number
 		}
-
-		// fmt.Println("loop", numBuf, string(b), s, err)
 
 		ok := true
 		switch {
 		case isDigit(b):
 			numBuf = append(numBuf, b)
-			s.next() // can't fail, peeked either before or at end of loop
+			s.mustNext()
 		case b == '.':
 			if isInt {
 				if len(numBuf) > 12 {
@@ -428,7 +425,7 @@ func parseNumber(s *scanner) (float64, error) {
 
 				numBuf = append(numBuf, b)
 				isInt = false
-				s.next() // can't fail, peeked either before or at end of loop
+				s.mustNext()
 			} else {
 				ok = false
 			}
@@ -447,14 +444,12 @@ func parseNumber(s *scanner) (float64, error) {
 		if !isInt && len(numBuf) > 16 {
 			return 0, s.parseError("too many digits in number")
 		}
-
-		b, err = s.peek()
 	}
 
 	if isInt {
 		i, err := strconv.Atoi(string(numBuf))
 		if err != nil {
-			panic(err) // should be unreachable
+			return 0, err
 		}
 
 		if isPos {
@@ -496,14 +491,14 @@ func parseString(s *scanner) (string, error) {
 	for {
 		b, err := s.next()
 		if err != nil {
-			return "", s.parseError("unexpected end of string")
+			return "", err
 		}
 
 		switch {
 		case b == '\\':
 			b, err := s.next()
 			if err != nil {
-				return "", s.parseError("unexpected end of string")
+				return "", err
 			}
 
 			if b != '\\' && b != '"' {
@@ -543,7 +538,7 @@ func parseToken(s *scanner) (string, error) {
 		}
 
 		buf = append(buf, b)
-		s.next() // can't fail; we already peeked this
+		s.mustNext()
 	}
 }
 
@@ -572,55 +567,6 @@ func parseByteSequence(s *scanner) ([]byte, error) {
 	}
 
 	return base64.StdEncoding.DecodeString(string(buf))
-}
-
-type scanner struct {
-	s string
-	i int
-}
-
-func (s *scanner) peek() (byte, error) {
-	if s.i == len(s.s) {
-		return 0, s.parseError("unexpected end of SFV input")
-	}
-
-	return s.s[s.i], nil
-}
-
-func (s *scanner) next() (byte, error) {
-	b, err := s.peek()
-	if err != nil {
-		return 0, err
-	}
-
-	s.i++
-	return b, nil
-}
-
-func (s scanner) parseError(msg string) error {
-	return ParseError{Offset: s.i, msg: msg}
-}
-
-func (s *scanner) skipSP() {
-	for {
-		b, err := s.peek()
-		if err != nil || b != ' ' {
-			break
-		}
-
-		s.next()
-	}
-}
-
-func (s *scanner) skipOWS() {
-	for {
-		b, err := s.peek()
-		if err != nil || !isOWS(b) {
-			break
-		}
-
-		s.next()
-	}
 }
 
 type ParseError struct {

@@ -3,6 +3,7 @@ package sfv_test
 import (
 	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,14 +12,11 @@ import (
 	"github.com/ucarion/sfv"
 )
 
-type testCase struct {
-	Name       string      `json:"name"`
-	Raw        []string    `json:"raw"`
-	HeaderType string      `json:"header_type"`
-	Expected   interface{} `json:"expected"`
-	MustFail   bool        `json:"must_fail"`
-	CanFail    bool        `json:"can_fail"`
-	Canonical  []string    `json:"canonical"`
+var skippedTestCases = map[string]struct{}{
+	// Supporting this test case would require that we try multiple decoders
+	// when parsing base64, which is undesirable. We currently fail on this test
+	// case, and it's marked as may_fail in the test suite.
+	"bad paddding": {}, // [sic]
 }
 
 func TestParse_StandardSuite(t *testing.T) {
@@ -40,53 +38,77 @@ func TestParse_StandardSuite(t *testing.T) {
 
 		for _, tt := range testCases {
 			t.Run(tt.Name, func(t *testing.T) {
-				if tt.MustFail || tt.CanFail {
+				if _, ok := skippedTestCases[tt.Name]; ok {
 					t.SkipNow()
 				}
 
-				switch tt.HeaderType {
-				case "item":
-					var out sfv.Item
-					for _, s := range tt.Raw {
-						if err := sfv.Unmarshal(s, &out); err != nil {
-							t.Errorf("unmarshal input: %v", err)
-						}
-					}
+				err := tt.verifyMarshal()
 
-					expected := decodeItem(tt.Expected)
-					if !reflect.DeepEqual(out, expected) {
-						t.Errorf("out != expected: want: %v, got: %v", expected, out)
-					}
-				case "list":
-					out := []sfv.Member{}
-					for _, s := range tt.Raw {
-						if err := sfv.Unmarshal(s, &out); err != nil {
-							t.Errorf("unmarshal input: %v", err)
-						}
-					}
+				if tt.MustFail && err == nil {
+					t.Errorf("marshal test must fail")
+				}
 
-					expected := decodeList(tt.Expected)
-					if !reflect.DeepEqual(out, expected) {
-						t.Errorf("out != expected: want: %#v, got: %#v", expected, out)
-					}
-				case "dictionary":
-					out := sfv.Dictionary{Map: map[string]sfv.Member{}, Keys: []string{}}
-					for _, s := range tt.Raw {
-						if err := sfv.Unmarshal(s, &out); err != nil {
-							t.Errorf("unmarshal input: %v", err)
-						}
-					}
-
-					expected := decodeDictionary(tt.Expected)
-					if !reflect.DeepEqual(out, expected) {
-						t.Errorf("out != expected: want: %#v, got: %#v", expected, out)
-					}
-				default:
-					t.Errorf("bad header type")
+				if !tt.MustFail && err != nil {
+					t.Errorf("marshal test must not fail: %v", err)
 				}
 			})
 		}
 	}
+}
+
+type testCase struct {
+	Name       string      `json:"name"`
+	Raw        []string    `json:"raw"`
+	HeaderType string      `json:"header_type"`
+	Expected   interface{} `json:"expected"`
+	MustFail   bool        `json:"must_fail"`
+	CanFail    bool        `json:"can_fail"`
+	Canonical  []string    `json:"canonical"`
+}
+
+func (tt testCase) verifyMarshal() error {
+	switch tt.HeaderType {
+	case "item":
+		var out sfv.Item
+		for _, s := range tt.Raw {
+			if err := sfv.Unmarshal(s, &out); err != nil {
+				return fmt.Errorf("unmarshal input: %w", err)
+			}
+		}
+
+		expected := decodeItem(tt.Expected)
+		if !reflect.DeepEqual(out, expected) {
+			return fmt.Errorf("out != expected: want: %#v, got: %#v", expected, out)
+		}
+	case "list":
+		out := []sfv.Member{}
+		for _, s := range tt.Raw {
+			if err := sfv.Unmarshal(s, &out); err != nil {
+				return fmt.Errorf("unmarshal input: %w", err)
+			}
+		}
+
+		expected := decodeList(tt.Expected)
+		if !reflect.DeepEqual(out, expected) {
+			return fmt.Errorf("out != expected: want: %#v, got: %#v", expected, out)
+		}
+	case "dictionary":
+		out := sfv.Dictionary{Map: map[string]sfv.Member{}, Keys: []string{}}
+		for _, s := range tt.Raw {
+			if err := sfv.Unmarshal(s, &out); err != nil {
+				return fmt.Errorf("unmarshal input: %w", err)
+			}
+		}
+
+		expected := decodeDictionary(tt.Expected)
+		if !reflect.DeepEqual(out, expected) {
+			return fmt.Errorf("out != expected: want: %#v, got: %#v", expected, out)
+		}
+	default:
+		return fmt.Errorf("bad header type: %v", tt.HeaderType)
+	}
+
+	return nil
 }
 
 func decodeDictionary(v interface{}) sfv.Dictionary {
