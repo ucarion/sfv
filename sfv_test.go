@@ -42,15 +42,29 @@ func TestParse_StandardSuite(t *testing.T) {
 					t.SkipNow()
 				}
 
-				err := tt.verifyMarshal()
+				t.Run("unmarshal", func(t *testing.T) {
+					err := tt.verifyUnmarshal()
 
-				if tt.MustFail && err == nil {
-					t.Errorf("marshal test must fail")
-				}
+					if tt.MustFail && err == nil {
+						t.Errorf("must fail, but didn't")
+					}
 
-				if !tt.MustFail && err != nil {
-					t.Errorf("marshal test must not fail: %v", err)
-				}
+					if !tt.MustFail && err != nil {
+						t.Errorf("must not fail, but did: %v", err)
+					}
+				})
+
+				t.Run("marshal", func(t *testing.T) {
+					err := tt.verifyMarshal()
+
+					if tt.MustFail && err == nil {
+						t.Errorf("must fail, but didn't")
+					}
+
+					if !tt.MustFail && err != nil {
+						t.Errorf("must not fail, but did: %v", err)
+					}
+				})
 			})
 		}
 	}
@@ -66,7 +80,7 @@ type testCase struct {
 	Canonical  []string    `json:"canonical"`
 }
 
-func (tt testCase) verifyMarshal() error {
+func (tt testCase) verifyUnmarshal() error {
 	switch tt.HeaderType {
 	case "item":
 		var out sfv.Item
@@ -106,6 +120,28 @@ func (tt testCase) verifyMarshal() error {
 		}
 	default:
 		return fmt.Errorf("bad header type: %v", tt.HeaderType)
+	}
+
+	return nil
+}
+
+func (tt testCase) verifyMarshal() error {
+	switch tt.HeaderType {
+	case "item":
+		in := decodeItem(tt.Expected)
+		out, err := sfv.Marshal(in)
+		if err != nil {
+			return err
+		}
+
+		expected := tt.Raw[0]
+		if len(tt.Canonical) > 0 {
+			expected = tt.Canonical[0]
+		}
+
+		if out != expected {
+			return fmt.Errorf("out != expected, want: %#v, got: %#v", expected, out)
+		}
 	}
 
 	return nil
