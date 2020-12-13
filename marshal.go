@@ -23,6 +23,12 @@ func Marshal(v interface{}) (string, error) {
 		}
 	}
 
+	if v, ok := v.(Dictionary); ok {
+		if err := marshalDictionary(&w, v); err != nil {
+			return "", err
+		}
+	}
+
 	return w.String(), nil
 }
 
@@ -51,6 +57,38 @@ func marshalList(w *strings.Builder, v []Member) error {
 		}
 
 		if i != len(v)-1 {
+			fmt.Fprint(w, ", ")
+		}
+	}
+
+	return nil
+}
+
+func marshalDictionary(w *strings.Builder, v Dictionary) error {
+	for i, k := range v.Keys {
+		if err := marshalKey(w, k); err != nil {
+			return err
+		}
+
+		if v.Map[k].IsItem && v.Map[k].Item.Value == true {
+			if err := marshalParams(w, v.Map[k].Item.Params); err != nil {
+				return err
+			}
+		} else {
+			fmt.Fprint(w, "=")
+
+			if v.Map[k].IsItem {
+				if err := marshalItem(w, v.Map[k].Item); err != nil {
+					return err
+				}
+			} else {
+				if err := marshalInnerList(w, v.Map[k].InnerList); err != nil {
+					return err
+				}
+			}
+		}
+
+		if i != len(v.Keys)-1 {
 			fmt.Fprint(w, ", ")
 		}
 	}

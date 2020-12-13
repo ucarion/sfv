@@ -161,6 +161,14 @@ func (tt testCase) verifyMarshal() (string, string, error) {
 		}
 
 		return expected, out, nil
+	case "dictionary":
+		in := decodeDictionary(tt.Expected)
+		out, err := sfv.Marshal(in)
+		if err != nil {
+			return "", "", err
+		}
+
+		return expected, out, nil
 	}
 
 	return "", "", nil
