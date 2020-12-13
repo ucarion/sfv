@@ -1,6 +1,7 @@
 package sfv
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"strconv"
@@ -47,6 +48,12 @@ func Unmarshal(s string, v interface{}) error {
 
 			v.Map[k] = dict.Map[k]
 		}
+	}
+
+	scan.skipSP()
+
+	if !scan.isEOF() {
+		return scan.parseError("illegal trailing characters")
 	}
 
 	return nil
@@ -360,7 +367,7 @@ func parseBoolean(s *scanner) (bool, error) {
 	}
 }
 
-func parseNumber(s *scanner) (float64, error) {
+func parseNumber(s *scanner) (interface{}, error) {
 	isInt := true      // are we parsing an integer, as opposed to a decimal?
 	isPos := true      // what is the sign of the number?
 	numBuf := []byte{} // a buffer of digits to parse
@@ -427,17 +434,19 @@ func parseNumber(s *scanner) (float64, error) {
 		}
 
 		if isPos {
-			return float64(i), nil
+			return int64(i), nil
 		}
 
-		return float64(-i), nil
+		return int64(-i), nil
 	}
 
 	if numBuf[len(numBuf)-1] == '.' {
 		return 0, s.parseError("number cannot end in '.'")
 	}
 
-	// todo: count chars past .
+	if len(numBuf)-bytes.Index(numBuf, []byte{'.'}) > 4 {
+		return 0, s.parseError("too much precision in fractional part of decimal")
+	}
 
 	n, err := strconv.ParseFloat(string(numBuf), 64)
 	if err != nil {
@@ -490,7 +499,7 @@ func parseString(s *scanner) (string, error) {
 	}
 }
 
-func parseToken(s *scanner) (string, error) {
+func parseToken(s *scanner) (Token, error) {
 	b, err := s.peek()
 	if err != nil {
 		return "", err // tokens cannot be empty
@@ -504,11 +513,11 @@ func parseToken(s *scanner) (string, error) {
 	for {
 		b, err := s.peek()
 		if err != nil {
-			return string(buf), nil // not an error; tokens can end at any time
+			return Token(string(buf)), nil // not an error; tokens can end at any time
 		}
 
 		if b != ':' && b != '/' && !isTChar(b) {
-			return string(buf), nil
+			return Token(string(buf)), nil
 		}
 
 		buf = append(buf, b)

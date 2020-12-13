@@ -21,6 +21,8 @@ type Item struct {
 	Params Params
 }
 
+type Token string
+
 type Params struct {
 	Map  map[string]interface{}
 	Keys []string
