@@ -21,7 +21,7 @@ var skippedTestCases = map[string]struct{}{
 }
 
 func TestParse_StandardSuite(t *testing.T) {
-	testFiles, err := filepath.Glob("structured-field-tests/*.json")
+	testFiles, err := filepath.Glob("structured-field-tests/**.json")
 	if err != nil {
 		t.Errorf("glob test files: %v", err)
 	}
