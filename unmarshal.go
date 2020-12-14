@@ -37,13 +37,13 @@ func Unmarshal(s string, v interface{}) error {
 			return err
 		}
 
-		if v == nil {
-			*v = dict
-		}
-
 		for _, k := range dict.Keys {
 			if _, ok := v.Map[k]; !ok {
 				v.Keys = append(v.Keys, k)
+			}
+
+			if v.Map == nil {
+				v.Map = map[string]Member{}
 			}
 
 			v.Map[k] = dict.Map[k]
@@ -60,7 +60,7 @@ func Unmarshal(s string, v interface{}) error {
 }
 
 func parseDictionary(s *scanner) (Dictionary, error) {
-	out := Dictionary{Map: map[string]Member{}, Keys: []string{}}
+	var out Dictionary
 
 	for {
 		b, err := s.peek()
@@ -89,6 +89,10 @@ func parseDictionary(s *scanner) (Dictionary, error) {
 			}
 
 			member = Member{IsItem: true, Item: Item{Value: true, Params: params}}
+		}
+
+		if out.Map == nil {
+			out.Map = map[string]Member{}
 		}
 
 		if _, ok := out.Map[key]; !ok {
@@ -123,8 +127,7 @@ func parseDictionary(s *scanner) (Dictionary, error) {
 }
 
 func parseList(s *scanner) ([]Member, error) {
-	out := []Member{}
-
+	var out []Member
 	for {
 		if s.isEOF() {
 			break

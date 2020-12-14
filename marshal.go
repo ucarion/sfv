@@ -169,7 +169,16 @@ func marshalString(w *strings.Builder, v string) error {
 }
 
 func marshalToken(w *strings.Builder, v Token) error {
-	// todo: check chars ok for token
+	for i, c := range v {
+		if i == 0 && !isAlpha(byte(c)) && c != '*' {
+			return fmt.Errorf("invalid first char in token: %v", c)
+		}
+
+		if i != 0 && !isTChar(byte(c)) && c != ':' && c != '/' {
+			return fmt.Errorf("invalid char in token: %v", c)
+		}
+	}
+
 	fmt.Fprintf(w, "%s", string(v))
 	return nil
 }
@@ -208,7 +217,12 @@ func marshalParams(w *strings.Builder, v Params) error {
 }
 
 func marshalKey(w *strings.Builder, v string) error {
-	// todo: check chars ok for key
+	for _, c := range v {
+		if !isLCAlpha(byte(c)) && !isDigit(byte(c)) && c != '_' && c != '-' && c != '.' && c != '*' {
+			return fmt.Errorf("invalid char in key: %c", c)
+		}
+	}
+
 	fmt.Fprintf(w, "%s", v)
 	return nil
 }
