@@ -311,7 +311,7 @@ func TestMarshal_StdTestSuite(t *testing.T) {
 }
 
 func TestMarshal_StdSerializationTestSuite(t *testing.T) {
-	testCases, err := parseTestFiles("structured-field-tests/serialization-tests/*.json")
+	testCases, err := parseTestFiles("structured-field-tests/serialisation-tests/*.json")
 	if err != nil {
 		t.Errorf("parse test files: %v", err)
 		return
@@ -319,12 +319,6 @@ func TestMarshal_StdSerializationTestSuite(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
-			// If there is no data to marshal, then there is nothing to test
-			// here.
-			if tt.Expected == nil {
-				return
-			}
-
 			actual, err := marshalTestCase(tt)
 
 			if tt.MustFail {
@@ -337,7 +331,12 @@ func TestMarshal_StdSerializationTestSuite(t *testing.T) {
 					return
 				}
 
-				expected := tt.Raw[0]
+				expected := ""
+
+				if len(tt.Raw) > 0 {
+					expected = tt.Raw[0]
+				}
+
 				if len(tt.Canonical) > 0 {
 					expected = tt.Canonical[0]
 				}

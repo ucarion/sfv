@@ -3,6 +3,7 @@ package sfv
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -138,7 +139,13 @@ func marshalBareItem(w *strings.Builder, v interface{}) error {
 }
 
 func marshalDecimal(w *strings.Builder, v float64) error {
-	// todo: check precision
+	if int64(v) < -999_999_999_999 || int64(v) > 999_999_999_999 {
+		return fmt.Errorf("decimal out of range: %v", v)
+	}
+
+	// limit to three digits of precision past the decimal
+	v = math.RoundToEven(v*1000) / 1000
+
 	s := strconv.FormatFloat(v, 'f', -1, 64)
 	if !strings.ContainsRune(s, '.') {
 		s += ".0"
@@ -149,15 +156,21 @@ func marshalDecimal(w *strings.Builder, v float64) error {
 }
 
 func marshalInteger(w *strings.Builder, v int64) error {
-	// todo: check range
+	if v < -999_999_999_999_999 || v > 999_999_999_999_999 {
+		return fmt.Errorf("integer out of range: %v", v)
+	}
+
 	fmt.Fprintf(w, "%d", v)
 	return nil
 }
 
 func marshalString(w *strings.Builder, v string) error {
-	// todo: check all chars ascii
 	fmt.Fprint(w, "\"")
 	for _, c := range v {
+		if !isVisible(byte(c)) && c != ' ' {
+			return fmt.Errorf("invalid char in string: %c", c)
+		}
+
 		if c == '\\' || c == '"' {
 			fmt.Fprintf(w, "\\%s", string(c))
 		} else {
@@ -217,7 +230,11 @@ func marshalParams(w *strings.Builder, v Params) error {
 }
 
 func marshalKey(w *strings.Builder, v string) error {
-	for _, c := range v {
+	for i, c := range v {
+		if i == 0 && !isLCAlpha(byte(c)) && c != '*' {
+			return fmt.Errorf("invalid first char in key: %c", c)
+		}
+
 		if !isLCAlpha(byte(c)) && !isDigit(byte(c)) && c != '_' && c != '-' && c != '.' && c != '*' {
 			return fmt.Errorf("invalid char in key: %c", c)
 		}
