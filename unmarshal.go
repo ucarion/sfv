@@ -9,7 +9,6 @@ import (
 
 func Unmarshal(s string, v interface{}) error {
 	scan := scanner{s: s, i: 0}
-
 	scan.skipSP()
 
 	// todo: support other types
@@ -88,7 +87,13 @@ func parseDictionary(s *scanner) (Dictionary, error) {
 				return Dictionary{}, err
 			}
 
-			member = Member{IsItem: true, Item: Item{Value: true, Params: params}}
+			member = Member{
+				IsItem: true,
+				Item: Item{
+					BareItem: BareItem{Type: BareItemTypeBoolean, Boolean: true},
+					Params:   params,
+				},
+			}
 		}
 
 		if out.Map == nil {
@@ -238,7 +243,7 @@ func parseInnerList(s *scanner) (InnerList, error) {
 }
 
 func parseItem(s *scanner) (Item, error) {
-	value, err := parseBareItem(s)
+	bareItem, err := parseBareItem(s)
 	if err != nil {
 		return Item{}, err
 	}
@@ -248,13 +253,13 @@ func parseItem(s *scanner) (Item, error) {
 		return Item{}, err
 	}
 
-	return Item{Value: value, Params: params}, nil
+	return Item{BareItem: bareItem, Params: params}, nil
 }
 
-func parseBareItem(s *scanner) (interface{}, error) {
+func parseBareItem(s *scanner) (BareItem, error) {
 	b, err := s.peek()
 	if err != nil {
-		return nil, err
+		return BareItem{}, err
 	}
 
 	switch {
@@ -269,12 +274,12 @@ func parseBareItem(s *scanner) (interface{}, error) {
 	case b == '?':
 		return parseBoolean(s)
 	default:
-		return nil, fmt.Errorf("invalid start of raw item")
+		return BareItem{}, fmt.Errorf("invalid start of bare item")
 	}
 }
 
 func parseParameters(s *scanner) (Params, error) {
-	out := Params{Map: map[string]interface{}{}, Keys: []string{}}
+	out := Params{Map: map[string]BareItem{}, Keys: []string{}}
 
 	for {
 		b, err := s.peek()
@@ -294,12 +299,12 @@ func parseParameters(s *scanner) (Params, error) {
 			return Params{}, err
 		}
 
-		var value interface{}
+		var value BareItem
 		b, err = s.peek()
 		if err != nil || b != '=' {
 			// not an error; this just means that the param doesn't have a
 			// value, so we use the default value instead
-			value = true
+			value = BareItem{Type: BareItemTypeBoolean, Boolean: true}
 		} else {
 			s.mustNext()
 			value, err = parseBareItem(s)
@@ -345,39 +350,39 @@ func parseKey(s *scanner) (string, error) {
 	}
 }
 
-func parseBoolean(s *scanner) (bool, error) {
+func parseBoolean(s *scanner) (BareItem, error) {
 	b, err := s.next()
 	if err != nil {
-		return false, err
+		return BareItem{}, err
 	}
 
 	if b != '?' {
-		return false, s.parseError("boolean must start with '?'")
+		return BareItem{}, s.parseError("boolean must start with '?'")
 	}
 
 	b, err = s.next()
 	if err != nil {
-		return false, err
+		return BareItem{}, err
 	}
 
 	switch b {
 	case '0':
-		return false, nil
+		return BareItem{Type: BareItemTypeBoolean, Boolean: false}, nil
 	case '1':
-		return true, nil
+		return BareItem{Type: BareItemTypeBoolean, Boolean: true}, nil
 	default:
-		return false, s.parseError("boolean value must be '0' or '1'")
+		return BareItem{}, s.parseError("boolean value must be '0' or '1'")
 	}
 }
 
-func parseNumber(s *scanner) (interface{}, error) {
+func parseNumber(s *scanner) (BareItem, error) {
 	isInt := true      // are we parsing an integer, as opposed to a decimal?
 	isPos := true      // what is the sign of the number?
 	numBuf := []byte{} // a buffer of digits to parse
 
 	b, err := s.peek()
 	if err != nil {
-		return 0, err
+		return BareItem{}, err
 	}
 
 	if b == '-' {
@@ -387,7 +392,7 @@ func parseNumber(s *scanner) (interface{}, error) {
 
 	// detect an "empty" integer
 	if _, err := s.peek(); err != nil {
-		return 0, err
+		return BareItem{}, err
 	}
 
 	for {
@@ -404,7 +409,7 @@ func parseNumber(s *scanner) (interface{}, error) {
 		case b == '.':
 			if isInt {
 				if len(numBuf) > 12 {
-					return 0, s.parseError("too many digits in number")
+					return BareItem{}, s.parseError("too many digits in number")
 				}
 
 				numBuf = append(numBuf, b)
@@ -422,33 +427,33 @@ func parseNumber(s *scanner) (interface{}, error) {
 		}
 
 		if isInt && len(numBuf) > 15 {
-			return 0, s.parseError("too many digits in number")
+			return BareItem{}, s.parseError("too many digits in number")
 		}
 
 		if !isInt && len(numBuf) > 16 {
-			return 0, s.parseError("too many digits in number")
+			return BareItem{}, s.parseError("too many digits in number")
 		}
 	}
 
 	if isInt {
 		i, err := strconv.Atoi(string(numBuf))
 		if err != nil {
-			return 0, err
+			return BareItem{}, err
 		}
 
 		if isPos {
-			return int64(i), nil
+			return BareItem{Type: BareItemTypeInteger, Integer: int64(i)}, nil
 		}
 
-		return int64(-i), nil
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(-i)}, nil
 	}
 
 	if numBuf[len(numBuf)-1] == '.' {
-		return 0, s.parseError("number cannot end in '.'")
+		return BareItem{}, s.parseError("number cannot end in '.'")
 	}
 
 	if len(numBuf)-bytes.Index(numBuf, []byte{'.'}) > 4 {
-		return 0, s.parseError("too much precision in fractional part of decimal")
+		return BareItem{}, s.parseError("too much precision in fractional part of decimal")
 	}
 
 	n, err := strconv.ParseFloat(string(numBuf), 64)
@@ -457,70 +462,70 @@ func parseNumber(s *scanner) (interface{}, error) {
 	}
 
 	if isPos {
-		return n, nil
+		return BareItem{Type: BareItemTypeDecimal, Decimal: n}, nil
 	}
 
-	return -n, nil
+	return BareItem{Type: BareItemTypeDecimal, Decimal: -n}, nil
 }
 
-func parseString(s *scanner) (string, error) {
+func parseString(s *scanner) (BareItem, error) {
 	b, err := s.next()
 	if err != nil {
-		return "", err
+		return BareItem{}, err
 	}
 
 	if b != '"' {
-		return "", s.parseError("string must start with '\"'")
+		return BareItem{}, s.parseError("string must start with '\"'")
 	}
 
 	var buf []byte
 	for {
 		b, err := s.next()
 		if err != nil {
-			return "", err
+			return BareItem{}, err
 		}
 
 		switch {
 		case b == '\\':
 			b, err := s.next()
 			if err != nil {
-				return "", err
+				return BareItem{}, err
 			}
 
 			if b != '\\' && b != '"' {
-				return "", s.parseError("only '\\' and '\"' may be escaped")
+				return BareItem{}, s.parseError("only '\\' and '\"' may be escaped")
 			}
 
 			buf = append(buf, b)
 		case b == '"':
-			return string(buf), nil
+			return BareItem{Type: BareItemTypeString, String: string(buf)}, nil
 		case b != ' ' && !isVisible(b):
-			return "", s.parseError("strings must contain only spaces or visible ascii")
+			return BareItem{}, s.parseError("strings must contain only spaces or visible ascii")
 		default:
 			buf = append(buf, b)
 		}
 	}
 }
 
-func parseToken(s *scanner) (Token, error) {
+func parseToken(s *scanner) (BareItem, error) {
 	b, err := s.peek()
 	if err != nil {
-		return "", err // tokens cannot be empty
+		return BareItem{}, err // tokens cannot be empty
 	}
 
 	if b != '*' && !isAlpha(b) {
-		return "", s.parseError("invalid start of token")
+		return BareItem{}, s.parseError("invalid start of token")
 	}
 
 	var buf []byte
 	for {
 		b, err := s.peek()
 		if err != nil {
-			return Token(string(buf)), nil // not an error; tokens can end at any time
+			return BareItem{Type: BareItemTypeToken, Token: string(buf)}, nil // not an error; tokens can end at any time
 		}
 
 		if b != ':' && b != '/' && !isTChar(b) {
-			return Token(string(buf)), nil
+			return BareItem{Type: BareItemTypeToken, Token: string(buf)}, nil
 		}
 
 		buf = append(buf, b)
@@ -528,21 +533,21 @@ func parseToken(s *scanner) (Token, error) {
 	}
 }
 
-func parseByteSequence(s *scanner) ([]byte, error) {
+func parseByteSequence(s *scanner) (BareItem, error) {
 	b, err := s.next()
 	if err != nil {
-		return nil, err
+		return BareItem{}, err
 	}
 
 	if b != ':' {
-		return nil, s.parseError("byte sequence must start with ':'")
+		return BareItem{}, s.parseError("byte sequence must start with ':'")
 	}
 
 	var buf []byte
 	for {
 		b, err := s.next()
 		if err != nil {
-			return nil, err
+			return BareItem{}, err
 		}
 
 		if b == ':' {
@@ -552,7 +557,12 @@ func parseByteSequence(s *scanner) ([]byte, error) {
 		buf = append(buf, b)
 	}
 
-	return base64.StdEncoding.DecodeString(string(buf))
+	bytes, err := base64.StdEncoding.DecodeString(string(buf))
+	if err != nil {
+		return BareItem{}, err
+	}
+
+	return BareItem{Type: BareItemTypeBinary, Binary: bytes}, nil
 }
 
 type ParseError struct {

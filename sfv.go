@@ -5,6 +5,8 @@ type Dictionary struct {
 	Keys []string
 }
 
+type List = []Member
+
 type Member struct {
 	IsItem    bool
 	Item      Item
@@ -17,13 +19,36 @@ type InnerList struct {
 }
 
 type Item struct {
-	Value  interface{}
-	Params Params
+	BareItem BareItem
+	Params   Params
 }
-
-type Token string
 
 type Params struct {
-	Map  map[string]interface{}
+	Map  map[string]BareItem
 	Keys []string
 }
+
+type BareItem struct {
+	Type    BareItemType
+	Integer int64
+	Decimal float64
+	String  string
+	Token   string
+	Binary  []byte
+	Boolean bool
+}
+
+func (b BareItem) isBoolTrue() bool {
+	return b.Type == BareItemTypeBoolean && b.Boolean == true
+}
+
+type BareItemType int
+
+const (
+	BareItemTypeInteger BareItemType = iota + 1
+	BareItemTypeDecimal
+	BareItemTypeString
+	BareItemTypeToken
+	BareItemTypeBinary
+	BareItemTypeBoolean
+)

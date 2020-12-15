@@ -34,7 +34,7 @@ func Marshal(v interface{}) (string, error) {
 }
 
 func marshalItem(w *strings.Builder, v Item) error {
-	if err := marshalBareItem(w, v.Value); err != nil {
+	if err := marshalBareItem(w, v.BareItem); err != nil {
 		return err
 	}
 
@@ -71,7 +71,7 @@ func marshalDictionary(w *strings.Builder, v Dictionary) error {
 			return err
 		}
 
-		if v.Map[k].IsItem && v.Map[k].Item.Value == true {
+		if v.Map[k].IsItem && v.Map[k].Item.BareItem.Type == BareItemTypeBoolean && v.Map[k].Item.BareItem.Boolean == true {
 			if err := marshalParams(w, v.Map[k].Item.Params); err != nil {
 				return err
 			}
@@ -119,20 +119,20 @@ func marshalInnerList(w *strings.Builder, v InnerList) error {
 	return nil
 }
 
-func marshalBareItem(w *strings.Builder, v interface{}) error {
-	switch v := v.(type) {
-	case float64:
-		return marshalDecimal(w, v)
-	case int64:
-		return marshalInteger(w, v)
-	case string:
-		return marshalString(w, v)
-	case Token:
-		return marshalToken(w, v)
-	case []byte:
-		return marshalByteSequence(w, v)
-	case bool:
-		return marshalBoolean(w, v)
+func marshalBareItem(w *strings.Builder, v BareItem) error {
+	switch v.Type {
+	case BareItemTypeDecimal:
+		return marshalDecimal(w, v.Decimal)
+	case BareItemTypeInteger:
+		return marshalInteger(w, v.Integer)
+	case BareItemTypeString:
+		return marshalString(w, v.String)
+	case BareItemTypeToken:
+		return marshalToken(w, v.Token)
+	case BareItemTypeBinary:
+		return marshalByteSequence(w, v.Binary)
+	case BareItemTypeBoolean:
+		return marshalBoolean(w, v.Boolean)
 	default:
 		return fmt.Errorf("unsupported bare item type: %v", v)
 	}
@@ -181,7 +181,7 @@ func marshalString(w *strings.Builder, v string) error {
 	return nil
 }
 
-func marshalToken(w *strings.Builder, v Token) error {
+func marshalToken(w *strings.Builder, v string) error {
 	for i, c := range v {
 		if i == 0 && !isAlpha(byte(c)) && c != '*' {
 			return fmt.Errorf("invalid first char in token: %v", c)
@@ -218,7 +218,7 @@ func marshalParams(w *strings.Builder, v Params) error {
 			return err
 		}
 
-		if v.Map[k] != true {
+		if !v.Map[k].isBoolTrue() {
 			fmt.Fprint(w, "=")
 			if err := marshalBareItem(w, v.Map[k]); err != nil {
 				return err

@@ -506,11 +506,11 @@ func decodeItem(v interface{}) sfv.Item {
 	}
 
 	arr := v.([]interface{})
-	return sfv.Item{Value: decodeBareItem(arr[0]), Params: decodeParams(arr[1])}
+	return sfv.Item{BareItem: decodeBareItem(arr[0]), Params: decodeParams(arr[1])}
 }
 
 func decodeParams(v interface{}) sfv.Params {
-	out := sfv.Params{Map: map[string]interface{}{}, Keys: []string{}}
+	out := sfv.Params{Map: map[string]sfv.BareItem{}, Keys: []string{}}
 	for _, pair := range v.([]interface{}) {
 		p := pair.([]interface{})
 		k, v := p[0].(string), decodeBareItem(p[1])
@@ -522,10 +522,12 @@ func decodeParams(v interface{}) sfv.Params {
 	return out
 }
 
-func decodeBareItem(v interface{}) interface{} {
+func decodeBareItem(v interface{}) sfv.BareItem {
 	switch v := v.(type) {
-	case bool, string:
-		return v
+	case bool:
+		return sfv.BareItem{Type: sfv.BareItemTypeBoolean, Boolean: v}
+	case string:
+		return sfv.BareItem{Type: sfv.BareItemTypeString, String: v}
 	case json.Number:
 		if strings.ContainsRune(v.String(), '.') {
 			n, err := v.Float64()
@@ -533,7 +535,7 @@ func decodeBareItem(v interface{}) interface{} {
 				panic(err)
 			}
 
-			return n
+			return sfv.BareItem{Type: sfv.BareItemTypeDecimal, Decimal: n}
 		}
 
 		n, err := v.Int64()
@@ -541,18 +543,19 @@ func decodeBareItem(v interface{}) interface{} {
 			panic(err)
 		}
 
-		return n
+		return sfv.BareItem{Type: sfv.BareItemTypeInteger, Integer: n}
 	case map[string]interface{}:
 		t := v["__type"]
 		switch t {
 		case "token":
-			return sfv.Token(v["value"].(string))
+			return sfv.BareItem{Type: sfv.BareItemTypeToken, Token: v["value"].(string)}
 		case "binary":
 			b, err := base32.StdEncoding.DecodeString(v["value"].(string))
 			if err != nil {
 				panic(err)
 			}
-			return b
+
+			return sfv.BareItem{Type: sfv.BareItemTypeBinary, Binary: b}
 		default:
 			panic("bad __type")
 		}
