@@ -44,6 +44,25 @@ func (b BareItem) isBoolTrue() bool {
 
 type BareItemType int
 
+func (t BareItemType) String() string {
+	switch t {
+	case BareItemTypeInteger:
+		return "integer"
+	case BareItemTypeDecimal:
+		return "decimal"
+	case BareItemTypeString:
+		return "string"
+	case BareItemTypeToken:
+		return "token"
+	case BareItemTypeBinary:
+		return "binary"
+	case BareItemTypeBoolean:
+		return "boolean"
+	default:
+		return "invalid type"
+	}
+}
+
 const (
 	BareItemTypeInteger BareItemType = iota + 1
 	BareItemTypeDecimal

@@ -11,26 +11,22 @@ func Unmarshal(s string, v interface{}) error {
 	scan := scanner{s: s, i: 0}
 	scan.skipSP()
 
-	// todo: support other types
-	if v, ok := v.(*Item); ok {
+	switch v := v.(type) {
+	case *Item:
 		item, err := parseItem(&scan)
 		if err != nil {
 			return err
 		}
 
 		*v = item
-	}
-
-	if v, ok := v.(*[]Member); ok {
+	case *List:
 		list, err := parseList(&scan)
 		if err != nil {
 			return err
 		}
 
 		*v = append(*v, list...)
-	}
-
-	if v, ok := v.(*Dictionary); ok {
+	case *Dictionary:
 		dict, err := parseDictionary(&scan)
 		if err != nil {
 			return err
@@ -47,6 +43,32 @@ func Unmarshal(s string, v interface{}) error {
 
 			v.Map[k] = dict.Map[k]
 		}
+
+	// If the user did not provide one of the builtin SFV types, then we are
+	// going to bind SFV data to the user-supplied type. But SFV's grammar is
+	// such that you need to know in advance whether you're parsing an item,
+	// list, or dictionary.
+	//
+	// So as a first step, we need to determine the data we're parsing. Then, we
+	// can bind the parsed structure onto the user's supplied type.
+	//
+	// Since we're already checking v.(type), let's see if the user supplied a
+	// "primitive" type. These correspond to an SFV item.
+	case *bool, *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16,
+		*uint32, *uint64, *float32, *float64, *string, *[]byte:
+		item, err := parseItem(&scan)
+		if err != nil {
+			return err
+		}
+
+		if err := bindItemToSink(item, v); err != nil {
+			return err
+		}
+	default:
+		// The user may have supplied a struct (corresponds to an item), a slice
+		// (corresponds to a list), or a map (corresponds to a dictionary). For
+		// these cases, we need to use reflection.
+		return fmt.Errorf("unsupported type: %T", v)
 	}
 
 	scan.skipSP()
