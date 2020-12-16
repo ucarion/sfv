@@ -2,6 +2,8 @@ package sfv_test
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
 
 	"github.com/ucarion/sfv"
 )
@@ -294,4 +296,94 @@ func ExampleMarshal_custom_map_with_inner_list_with_nested_params() {
 
 	// Output:
 	// a=(gzip;xxx=yyy fr);foo=bar <nil>
+}
+
+func TestMarshal_custom_bare_types(t *testing.T) {
+	testCases := []struct {
+		Out     string
+		Type    reflect.Kind
+		Bool    bool
+		String  string
+		Int     int
+		Int8    int8
+		Int16   int16
+		Int32   int32
+		Int64   int64
+		Uint    uint
+		Uint8   uint8
+		Uint16  uint16
+		Uint32  uint32
+		Uint64  uint64
+		Float32 float32
+		Float64 float64
+		Bytes   []byte
+	}{
+		{Out: "?0", Type: reflect.Bool, Bool: false},
+		{Out: "?1", Type: reflect.Bool, Bool: true},
+		{Out: "foo", Type: reflect.String, String: "foo"},
+		{Out: "3", Type: reflect.Int, Int: 3},
+		{Out: "3", Type: reflect.Int8, Int8: 3},
+		{Out: "3", Type: reflect.Int16, Int16: 3},
+		{Out: "3", Type: reflect.Int32, Int32: 3},
+		{Out: "3", Type: reflect.Int64, Int64: 3},
+		{Out: "3", Type: reflect.Uint, Uint: 3},
+		{Out: "3", Type: reflect.Uint8, Uint8: 3},
+		{Out: "3", Type: reflect.Uint16, Uint16: 3},
+		{Out: "3", Type: reflect.Uint32, Uint32: 3},
+		{Out: "3", Type: reflect.Uint64, Uint64: 3},
+		{Out: "3.14", Type: reflect.Float32, Float32: 3.14},
+		{Out: "3.14", Type: reflect.Float64, Float64: 3.14},
+		{Out: ":aGVsbG8=:", Type: reflect.Array, Bytes: []byte{'h', 'e', 'l', 'l', 'o'}},
+	}
+
+	for _, tt := range testCases {
+		t.Run(fmt.Sprintf("%s %s", tt.Type, tt.Out), func(t *testing.T) {
+			var got interface{}
+			var err error
+
+			switch tt.Type {
+			case reflect.Bool:
+				got, err = sfv.Marshal(tt.Bool)
+			case reflect.String:
+				got, err = sfv.Marshal(tt.String)
+			case reflect.Int:
+				got, err = sfv.Marshal(tt.Int)
+			case reflect.Int8:
+				got, err = sfv.Marshal(tt.Int8)
+			case reflect.Int16:
+				got, err = sfv.Marshal(tt.Int16)
+			case reflect.Int32:
+				got, err = sfv.Marshal(tt.Int32)
+			case reflect.Int64:
+				got, err = sfv.Marshal(tt.Int64)
+			case reflect.Uint:
+				got, err = sfv.Marshal(tt.Uint)
+			case reflect.Uint8:
+				got, err = sfv.Marshal(tt.Uint8)
+			case reflect.Uint16:
+				got, err = sfv.Marshal(tt.Uint16)
+			case reflect.Uint32:
+				got, err = sfv.Marshal(tt.Uint32)
+			case reflect.Uint64:
+				got, err = sfv.Marshal(tt.Uint64)
+			case reflect.Float32:
+				got, err = sfv.Marshal(tt.Float32)
+			case reflect.Float64:
+				got, err = sfv.Marshal(tt.Float64)
+			case reflect.Array:
+				got, err = sfv.Marshal(tt.Bytes)
+			default:
+				panic("bad tt.Type")
+			}
+
+			if err != nil {
+				t.Errorf("err: %v", err)
+				return
+			}
+
+			if tt.Out != got {
+				t.Errorf("bad unmarshal result: want: %#v, got: %#v", tt.Out, got)
+			}
+		})
+	}
 }

@@ -188,13 +188,39 @@ func unbindParams(v reflect.Value) (Params, error) {
 
 func unbindBareItem(v interface{}) (BareItem, error) {
 	switch v := v.(type) {
+	case bool:
+		return BareItem{Type: BareItemTypeBoolean, Boolean: v}, nil
 	case int:
 		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
-	case string:
-		// todo: how to decide whether to use token or string?
-		return BareItem{Type: BareItemTypeToken, Token: v}, nil
+	case int8:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case int16:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case int32:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case int64:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case uint:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case uint8:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case uint16:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case uint32:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case uint64:
+		return BareItem{Type: BareItemTypeInteger, Integer: int64(v)}, nil
+	case float32:
+		return BareItem{Type: BareItemTypeDecimal, Decimal: float64(v)}, nil
 	case float64:
 		return BareItem{Type: BareItemTypeDecimal, Decimal: v}, nil
+	case string:
+		// Do we want to give users a way to coerce serialization to a string
+		// instead of a token? At the time of writing, it's not clear what the
+		// most convenient way to do this for users would be.
+		return BareItem{Type: BareItemTypeToken, Token: v}, nil
+	case []byte:
+		return BareItem{Type: BareItemTypeBinary, Binary: v}, nil
 	}
 
 	return BareItem{}, fmt.Errorf("cannot unmarshal from %T", v)
