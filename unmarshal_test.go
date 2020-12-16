@@ -132,7 +132,7 @@ func ExampleUnmarshal_custom_list_iterated_calls() {
 	// [{fr-CH 0} {fr 0.9} {* 0.5}]
 }
 
-func ExampleUnmarshal_custom_inner_list() {
+func ExampleUnmarshal_custom_list_with_inner_list() {
 	var data [][]string
 	fmt.Println(sfv.Unmarshal("(gzip fr), (identity fr)", &data))
 	fmt.Println(data)
@@ -142,7 +142,7 @@ func ExampleUnmarshal_custom_inner_list() {
 	// [[gzip fr] [identity fr]]
 }
 
-func ExampleUnmarshal_custom_inner_list_with_params() {
+func ExampleUnmarshal_custom_list_with_inner_list_with_params() {
 	type innerListWithParams struct {
 		Names []string
 		Foo   string `sfv:"foo"`
@@ -157,7 +157,7 @@ func ExampleUnmarshal_custom_inner_list_with_params() {
 	// [{[gzip fr] bar} {[identity fr] baz}]
 }
 
-func ExampleUnmarshal_custom_inner_list_with_nested_params() {
+func ExampleUnmarshal_custom_list_with_inner_list_with_nested_params() {
 	type itemWithParams struct {
 		Name string
 		XXX  string `sfv:"xxx"`
@@ -210,6 +210,41 @@ func ExampleUnmarshal_custom_map_inner_list() {
 	// Output:
 	// <nil>
 	// map[accept-encoding:[gzip br] accept-language:[en fr]]
+}
+
+func ExampleUnmarshal_custom_map_with_inner_list_with_params() {
+	type innerListWithParams struct {
+		Names []string
+		Foo   string `sfv:"foo"`
+	}
+
+	var data map[string]innerListWithParams
+	fmt.Println(sfv.Unmarshal("a=(gzip fr);foo=bar, b=(identity fr);foo=baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[a:{[gzip fr] bar} b:{[identity fr] baz}]
+}
+
+func ExampleUnmarshal_custom_map_with_inner_list_with_nested_params() {
+	type itemWithParams struct {
+		Name string
+		XXX  string `sfv:"xxx"`
+	}
+
+	type innerListWithParams struct {
+		Names []itemWithParams
+		Foo   string `sfv:"foo"`
+	}
+
+	var data map[string]innerListWithParams
+	fmt.Println(sfv.Unmarshal("a=(gzip;xxx=yyy fr);foo=bar, b=(identity fr;xxx=zzz);foo=baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[a:{[{gzip yyy} {fr }] bar} b:{[{identity } {fr zzz}] baz}]
 }
 
 func TestUnmarshal_custom_bare_types(t *testing.T) {

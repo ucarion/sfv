@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -11,22 +12,62 @@ import (
 func Marshal(v interface{}) (string, error) {
 	var w strings.Builder
 
-	// todo: other types
-	if v, ok := v.(Item); ok {
+	switch v := v.(type) {
+	case Item:
 		if err := marshalItem(&w, v); err != nil {
 			return "", err
 		}
-	}
-
-	if v, ok := v.([]Member); ok {
+	case List:
 		if err := marshalList(&w, v); err != nil {
 			return "", err
 		}
-	}
-
-	if v, ok := v.(Dictionary); ok {
+	case Dictionary:
 		if err := marshalDictionary(&w, v); err != nil {
 			return "", err
+		}
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16,
+		uint32, uint64, float32, float64, string, []byte:
+		item, err := unbindItem(reflect.ValueOf(v))
+		if err != nil {
+			return "", err
+		}
+
+		if err := marshalItem(&w, item); err != nil {
+			return "", err
+		}
+	default:
+		val := reflect.ValueOf(v)
+
+		switch val.Kind() {
+		case reflect.Struct:
+			item, err := unbindItem(val)
+			if err != nil {
+				return "", err
+			}
+
+			if err := marshalItem(&w, item); err != nil {
+				return "", err
+			}
+		case reflect.Slice:
+			list, err := unbindList(val)
+			if err != nil {
+				return "", err
+			}
+
+			if err := marshalList(&w, list); err != nil {
+				return "", err
+			}
+		case reflect.Map:
+			dict, err := unbindDictionary(val)
+			if err != nil {
+				return "", err
+			}
+
+			if err := marshalDictionary(&w, dict); err != nil {
+				return "", err
+			}
+		default:
+			return "", fmt.Errorf("unsupported type: %T", v)
 		}
 	}
 
