@@ -8,8 +8,19 @@ Values](https://www.rfc-editor.org/rfc/rfc8941.html), aka RFC 8941. You can use
 fully compliant with the [standard SFV test
 suite](https://github.com/httpwg/structured-field-tests).
 
-A quick example might make this clearer. Let's try to read the `Content-Type`
-HTTP header which, as a reminder, usually looks like this:
+## Installation
+
+You can install this package by running:
+
+```bash
+go get github.com/ucarion/sfv
+```
+
+## Example
+
+The cleverness of the Structured Field Values specification is that it
+retroactively makes sense of a lot of existing HTTP headers. For instance, the
+`Content-Type` header happens to be a well-formed SFV header:
 
 ```text
 Content-Type: text/html; charset=utf-8
@@ -46,9 +57,8 @@ fmt.Println(err) // Outputs: <nil>
 fmt.Println(out) // Outputs: text/html;charset=utf-8
 ```
 
-This pattern should be familiar if you've used `encoding/json` before. The
-[online reference documentation](https://pkg.go.dev/github.com/ucarion/sfv) has
-dozens of examples of how you can convert SFV items, lists, or dictionaries
+The [online reference documentation](https://pkg.go.dev/github.com/ucarion/sfv)
+has dozens of examples of how you can convert SFV items, lists, or dictionaries
 to/from their Golang equivalents.
 
 ## Losslessly round-tripping SFV data
