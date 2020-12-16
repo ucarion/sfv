@@ -66,19 +66,151 @@ func ExampleUnmarshal_custom_bare_item() {
 	// text/html
 }
 
-// func ExampleUnmarshal_custom_item() {
-// 	type contentType struct {
-// 		MediaType string
-// 		Charset   string `sfv:"charset"`
-// 		Boundary  string `sfv:"boundary"`
-// 	}
+func ExampleUnmarshal_custom_item() {
+	type contentType struct {
+		MediaType string
+		Charset   string `sfv:"charset"`
+		Boundary  string `sfv:"boundary"`
+	}
 
-// 	var data contentType
-// 	fmt.Println(sfv.Unmarshal("text/html; charset=UTF-8", &data))
-// 	fmt.Println(data)
-// 	// Output:
-// 	// <nil>
-// }
+	var data1 contentType
+	fmt.Println(sfv.Unmarshal("text/html; charset=UTF-8", &data1))
+	fmt.Println(data1)
+
+	var data2 contentType
+	fmt.Println(sfv.Unmarshal("multipart/form-data; charset=UTF-8; boundary=xxx", &data2))
+	fmt.Println(data2)
+
+	// Output:
+	// <nil>
+	// {text/html UTF-8 }
+	// <nil>
+	// {multipart/form-data UTF-8 xxx}
+}
+
+func ExampleUnmarshal_custom_basic_list() {
+	var data []string
+	fmt.Println(sfv.Unmarshal("foo, bar, baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [foo bar baz]
+}
+
+func ExampleUnmarshal_custom_list() {
+	type language struct {
+		Tag    string
+		Weight float64 `sfv:"q"`
+	}
+
+	var data []language
+	fmt.Println(sfv.Unmarshal("fr-CH, fr;q=0.9, *;q=0.5", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [{fr-CH 0} {fr 0.9} {* 0.5}]
+}
+
+func ExampleUnmarshal_custom_list_iterated_calls() {
+	type language struct {
+		Tag    string
+		Weight float64 `sfv:"q"`
+	}
+
+	var data []language
+	fmt.Println(sfv.Unmarshal("fr-CH", &data))
+	fmt.Println(sfv.Unmarshal("fr;q=0.9", &data))
+	fmt.Println(sfv.Unmarshal("*;q=0.5", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// <nil>
+	// <nil>
+	// [{fr-CH 0} {fr 0.9} {* 0.5}]
+}
+
+func ExampleUnmarshal_custom_inner_list() {
+	var data [][]string
+	fmt.Println(sfv.Unmarshal("(gzip fr), (identity fr)", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [[gzip fr] [identity fr]]
+}
+
+func ExampleUnmarshal_custom_inner_list_with_params() {
+	type innerListWithParams struct {
+		Names []string
+		Foo   string `sfv:"foo"`
+	}
+
+	var data []innerListWithParams
+	fmt.Println(sfv.Unmarshal("(gzip fr);foo=bar, (identity fr);foo=baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [{[gzip fr] bar} {[identity fr] baz}]
+}
+
+func ExampleUnmarshal_custom_inner_list_with_nested_params() {
+	type itemWithParams struct {
+		Name string
+		XXX  string `sfv:"xxx"`
+	}
+
+	type innerListWithParams struct {
+		Names []itemWithParams
+		Foo   string `sfv:"foo"`
+	}
+
+	var data []innerListWithParams
+	fmt.Println(sfv.Unmarshal("(gzip;xxx=yyy fr);foo=bar, (identity fr;xxx=zzz);foo=baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [{[{gzip yyy} {fr }] bar} {[{identity } {fr zzz}] baz}]
+}
+
+func ExampleUnmarshal_custom_basic_map() {
+	var data map[string]int
+	fmt.Println(sfv.Unmarshal("foo=1, bar=2, baz=3", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[bar:2 baz:3 foo:1]
+}
+
+func ExampleUnmarshal_custom_map() {
+	type thing struct {
+		Value int
+		Foo   string `sfv:"foo"`
+	}
+
+	var data map[string]thing
+	fmt.Println(sfv.Unmarshal("xxx=1;foo=bar, yyy=2;foo=baz", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[xxx:{1 bar} yyy:{2 baz}]
+}
+
+func ExampleUnmarshal_custom_map_inner_list() {
+	var data map[string][]string
+	fmt.Println(sfv.Unmarshal("accept-encoding=(gzip br), accept-language=(en fr)", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[accept-encoding:[gzip br] accept-language:[en fr]]
+}
 
 func TestUnmarshal_custom_bare_types(t *testing.T) {
 	testCases := []struct {
@@ -217,25 +349,3 @@ func TestUnmarshal_custom_bare_types(t *testing.T) {
 		})
 	}
 }
-
-// // func TestUnmarshal_custom_type_string(t *testing.T) {
-// // 	var data string
-// // 	if err := sfv.Unmarshal("\"foo\"; bar=baz", &data); err != nil {
-// // 		t.Errorf("err: %v", err)
-// // 	}
-
-// // 	if data != "foo" {
-// // 		t.Errorf("data != \"foo\": %v", data)
-// // 	}
-// // }
-
-// // func TestUnmarshal_custom_type_int(t *testing.T) {
-// // 	var data int
-// // 	if err := sfv.Unmarshal("3; bar=baz", &data); err != nil {
-// // 		t.Errorf("err: %v", err)
-// // 	}
-
-// // 	if data != 3 {
-// // 		t.Errorf("data != \"foo\": %v", data)
-// // 	}
-// // }

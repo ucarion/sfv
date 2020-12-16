@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strconv"
 )
 
@@ -61,14 +62,56 @@ func Unmarshal(s string, v interface{}) error {
 			return err
 		}
 
-		if err := bindItemToSink(item, v); err != nil {
+		val := reflect.ValueOf(v)
+
+		if err := bindItem(item, val.Elem()); err != nil {
 			return err
 		}
 	default:
 		// The user may have supplied a struct (corresponds to an item), a slice
 		// (corresponds to a list), or a map (corresponds to a dictionary). For
 		// these cases, we need to use reflection.
-		return fmt.Errorf("unsupported type: %T", v)
+		val := reflect.ValueOf(v)
+
+		// Make sure we can call Elem on val without panicing.
+		if val.Kind() != reflect.Ptr {
+			return fmt.Errorf("unsupported type: %T", v)
+		}
+
+		switch val.Elem().Kind() {
+		case reflect.Struct:
+			// Parse as an item, and then bind the item to the given struct.
+			item, err := parseItem(&scan)
+			if err != nil {
+				return err
+			}
+
+			if err := bindItem(item, val.Elem()); err != nil {
+				return err
+			}
+		case reflect.Slice:
+			// Parse as a list, and then bind the list to the given slice.
+			list, err := parseList(&scan)
+			if err != nil {
+				return err
+			}
+
+			if err := bindList(list, val.Elem()); err != nil {
+				return err
+			}
+		case reflect.Map:
+			// Parse as a dictionary, and then bind the list to the given map.
+			dict, err := parseDictionary(&scan)
+			if err != nil {
+				return err
+			}
+
+			if err := bindDictionary(dict, val.Elem()); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported type: %T", v)
+		}
 	}
 
 	scan.skipSP()
