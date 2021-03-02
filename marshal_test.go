@@ -298,6 +298,41 @@ func ExampleMarshal_custom_map_with_inner_list_with_nested_params() {
 	// a=(gzip;xxx=yyy fr);foo=bar <nil>
 }
 
+func ExampleMarshal_list_of_bytes() {
+	fmt.Println(sfv.Marshal([][]byte{
+		[]byte{1, 2, 3, 4},
+		[]byte{1, 2, 3, 4},
+	}))
+
+	// Output:
+	// :AQIDBA==:, :AQIDBA==: <nil>
+}
+
+func ExampleMarshal_list_of_list_of_bytes() {
+	fmt.Println(sfv.Marshal([][][]byte{
+		[][]byte{
+			[]byte{1, 2, 3, 4},
+			[]byte{1, 2, 3, 4},
+		},
+		[][]byte{
+			[]byte{1, 2, 3, 4},
+		},
+	}))
+
+	// Output:
+	// (:AQIDBA==: :AQIDBA==:), (:AQIDBA==:) <nil>
+}
+
+func ExampleMarshal_map_of_bytes() {
+	fmt.Println(sfv.Marshal(map[string][]byte{
+		"sig1": []byte{1, 2, 3, 4},
+		"sig2": []byte{1, 2, 3, 4},
+	}))
+
+	// Output:
+	// sig1=:AQIDBA==:, sig2=:AQIDBA==: <nil>
+}
+
 func TestMarshal_custom_bare_types(t *testing.T) {
 	testCases := []struct {
 		Out     string

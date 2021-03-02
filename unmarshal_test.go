@@ -247,6 +247,36 @@ func ExampleUnmarshal_custom_map_with_inner_list_with_nested_params() {
 	// map[a:{[{gzip yyy} {fr }] bar} b:{[{identity } {fr zzz}] baz}]
 }
 
+func ExampleUnmarshal_list_of_bytes() {
+	var data [][]byte
+	fmt.Println(sfv.Unmarshal(":AQIDBA==:, :AQIDBA==:", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [[1 2 3 4] [1 2 3 4]]
+}
+
+func ExampleUnmarshal_list_of_list_of_bytes() {
+	var data [][][]byte
+	fmt.Println(sfv.Unmarshal("(:AQIDBA==: :AQIDBA==:), (:AQIDBA==:)", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// [[[1 2 3 4] [1 2 3 4]] [[1 2 3 4]]]
+}
+
+func ExampleUnmarshal_map_of_bytes() {
+	var data map[string][]byte
+	fmt.Println(sfv.Unmarshal("sig1=:AQIDBA==:, sig2=:AQIDBA==:", &data))
+	fmt.Println(data)
+
+	// Output:
+	// <nil>
+	// map[sig1:[1 2 3 4] sig2:[1 2 3 4]]
+}
+
 func TestUnmarshal_custom_bare_types(t *testing.T) {
 	testCases := []struct {
 		In      string
