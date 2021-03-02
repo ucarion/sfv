@@ -17,7 +17,7 @@ func ExampleMarshal_raw_item() {
 		Params: sfv.Params{
 			Keys: []string{"charset"},
 			Map: map[string]sfv.BareItem{
-				"charset": {
+				"charset": sfv.BareItem{
 					Type:  sfv.BareItemTypeToken,
 					Token: "UTF-8",
 				},
@@ -50,7 +50,7 @@ func ExampleMarshal_raw_list() {
 				Params: sfv.Params{
 					Keys: []string{"q"},
 					Map: map[string]sfv.BareItem{
-						"q": {
+						"q": sfv.BareItem{
 							Type:    sfv.BareItemTypeDecimal,
 							Decimal: 0.9,
 						},
@@ -68,7 +68,7 @@ func ExampleMarshal_raw_list() {
 				Params: sfv.Params{
 					Keys: []string{"q"},
 					Map: map[string]sfv.BareItem{
-						"q": {
+						"q": sfv.BareItem{
 							Type:    sfv.BareItemTypeDecimal,
 							Decimal: 0.5,
 						},
@@ -86,7 +86,7 @@ func ExampleMarshal_raw_dict() {
 	dict := sfv.Dictionary{
 		Keys: []string{"public", "max-age", "immutable"},
 		Map: map[string]sfv.Member{
-			"public": {
+			"public": sfv.Member{
 				IsItem: true,
 				Item: sfv.Item{
 					BareItem: sfv.BareItem{
@@ -95,7 +95,7 @@ func ExampleMarshal_raw_dict() {
 					},
 				},
 			},
-			"max-age": {
+			"max-age": sfv.Member{
 				IsItem: true,
 				Item: sfv.Item{
 					BareItem: sfv.BareItem{
@@ -104,7 +104,7 @@ func ExampleMarshal_raw_dict() {
 					},
 				},
 			},
-			"immutable": {
+			"immutable": sfv.Member{
 				IsItem: true,
 				Item: sfv.Item{
 					BareItem: sfv.BareItem{
@@ -156,9 +156,9 @@ func ExampleMarshal_custom_list() {
 	}
 
 	fmt.Println(sfv.Marshal([]language{
-		{Tag: "fr-CH"},
-		{Tag: "fr", Weight: 0.9},
-		{Tag: "*", Weight: 0.5},
+		language{Tag: "fr-CH"},
+		language{Tag: "fr", Weight: 0.9},
+		language{Tag: "*", Weight: 0.5},
 	}))
 
 	// Output:
@@ -167,8 +167,8 @@ func ExampleMarshal_custom_list() {
 
 func ExampleMarshal_custom_list_with_inner_list() {
 	fmt.Println(sfv.Marshal([][]string{
-		{"gzip", "fr"},
-		{"identity", "fr"},
+		[]string{"gzip", "fr"},
+		[]string{"identity", "fr"},
 	}))
 
 	// Output:
@@ -182,11 +182,11 @@ func ExampleMarshal_custom_list_with_inner_list_with_params() {
 	}
 
 	fmt.Println(sfv.Marshal([]innerListWithParams{
-		{
+		innerListWithParams{
 			Names: []string{"gzip", "fr"},
 			Foo:   "bar",
 		},
-		{
+		innerListWithParams{
 			Names: []string{"identity", "fr"},
 			Foo:   "baz",
 		},
@@ -208,17 +208,17 @@ func ExampleMarshal_custom_list_with_inner_list_with_nested_params() {
 	}
 
 	fmt.Println(sfv.Marshal([]innerListWithParams{
-		{
+		innerListWithParams{
 			Names: []itemWithParams{
-				{Name: "gzip", XXX: "yyy"},
-				{Name: "fr"},
+				itemWithParams{Name: "gzip", XXX: "yyy"},
+				itemWithParams{Name: "fr"},
 			},
 			Foo: "bar",
 		},
-		{
+		innerListWithParams{
 			Names: []itemWithParams{
-				{Name: "identity"},
-				{Name: "fr", XXX: "zzz"},
+				itemWithParams{Name: "identity"},
+				itemWithParams{Name: "fr", XXX: "zzz"},
 			},
 			Foo: "baz",
 		},
@@ -240,7 +240,7 @@ func ExampleMarshal_custom_map() {
 	}
 
 	fmt.Println(sfv.Marshal(map[string]thing{
-		"xxx": {Value: 1, Foo: "bar"},
+		"xxx": thing{Value: 1, Foo: "bar"},
 	}))
 
 	// Output:
@@ -249,7 +249,7 @@ func ExampleMarshal_custom_map() {
 
 func ExampleMarshal_custom_map_inner_list() {
 	fmt.Println(sfv.Marshal(map[string][]string{
-		"accept-encoding": {"gzip", "br"},
+		"accept-encoding": []string{"gzip", "br"},
 	}))
 
 	// Output:
@@ -263,7 +263,7 @@ func ExampleMarshal_custom_map_with_inner_list_with_params() {
 	}
 
 	fmt.Println(sfv.Marshal(map[string]innerListWithParams{
-		"a": {
+		"a": innerListWithParams{
 			Names: []string{"gzip", "fr"},
 			Foo:   "bar",
 		},
@@ -285,10 +285,10 @@ func ExampleMarshal_custom_map_with_inner_list_with_nested_params() {
 	}
 
 	fmt.Println(sfv.Marshal(map[string]innerListWithParams{
-		"a": {
+		"a": innerListWithParams{
 			Names: []itemWithParams{
-				{Name: "gzip", XXX: "yyy"},
-				{Name: "fr"},
+				itemWithParams{Name: "gzip", XXX: "yyy"},
+				itemWithParams{Name: "fr"},
 			},
 			Foo: "bar",
 		},
