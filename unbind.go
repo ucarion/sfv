@@ -123,8 +123,10 @@ func unbindDictionary(v reflect.Value) (Dictionary, error) {
 	return out, nil
 }
 
+var typeOfBytes = reflect.TypeOf([]byte(nil))
+
 func unbindMember(v reflect.Value) (Member, error) {
-	isInnerList := v.Type().Kind() == reflect.Slice
+	isInnerList := v.Type().Kind() == reflect.Slice && v.Type() != typeOfBytes
 	if !isInnerList && v.Type().Kind() == reflect.Struct {
 		for j := 0; j < v.Type().NumField(); j++ {
 			if _, ok := v.Type().Field(j).Tag.Lookup("sfv"); !ok {
